@@ -6,21 +6,11 @@ namespace BobboNet.Networking
         where SelfType : GenericPlayerAnimationState<SelfType>
     {
         //
-        //  Types
-        //
-
-        public enum GroundAnimationType {
-            IsGrounded,
-            InAir,
-            IsSliding
-        }
-
-        //
         //  Properties
         //
 
         public float VerticalLook { get; set; }
-        public GroundAnimationType GroundedType { get; set; }
+        public GenericGroundAnimationType GroundedType { get; set; }
 
 
         //
@@ -44,7 +34,7 @@ namespace BobboNet.Networking
         public void Deserialize(NetDataReader reader)
         {
             VerticalLook = reader.GetFloat();
-            GroundedType = (GroundAnimationType)reader.GetChar();
+            GroundedType = (GenericGroundAnimationType)reader.GetChar();
         }
 
         public void Serialize(NetDataWriter writer)
