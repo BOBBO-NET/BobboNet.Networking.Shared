@@ -1,0 +1,2 @@
+# BobboNet.Networking.Shared
+todo!
