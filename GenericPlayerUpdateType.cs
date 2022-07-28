@@ -1,5 +1,8 @@
+using System;
+
 namespace BobboNet.Networking
 {
+    [Flags]
     public enum GenericPlayerUpdateType : byte
     {
         None        = 0b_0000_0000,
