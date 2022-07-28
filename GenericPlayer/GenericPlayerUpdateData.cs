@@ -20,7 +20,7 @@ namespace BobboNet.Networking
 
         public GenericPlayerUpdateData() { }
 
-        public SelfType Copy(SelfType other)
+        public virtual SelfType Copy(SelfType other)
         {
             this.Type = other.Type;
             this.Position = new NetVec3(other.Position);
