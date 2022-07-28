@@ -75,18 +75,34 @@ namespace BobboNet.Networking
 
         public override void ApplyPlayerUpdate(PlayerUpdate newUpdate)
         {
-            this.SetPositionAndVelocity(newUpdate.Position, newUpdate.Velocity);
-            this.SetRotation(newUpdate.Rotation);
-            this.SetAnimationState(newUpdate.Animation);
+            if((newUpdate.Type & GenericPlayerUpdateType.Position) == GenericPlayerUpdateType.Position)
+            {
+                this.SetPositionAndVelocity(newUpdate.Position, newUpdate.Velocity);
+            }
+
+            if((newUpdate.Type & GenericPlayerUpdateType.Rotation) == GenericPlayerUpdateType.Rotation)
+            {
+                this.SetRotation(newUpdate.Rotation);
+            }
+
+            if((newUpdate.Type & GenericPlayerUpdateType.Animation) == GenericPlayerUpdateType.Animation)
+            {
+                this.SetAnimationState(newUpdate.Animation);
+            }            
         }
 
         public override PlayerUpdate CommitToPlayerUpdate()
         {
             PlayerUpdate updateData = CreatePlayerUpdate();
+            updateData.Type = GetPlayerUpdateType();
 
             lastPlayerUpdate = new PlayerUpdate();
             lastPlayerUpdate.Copy(updateData);
             lastPlayerUpdateTime = DateTime.UtcNow;
+
+            // Apply extrapolated position locally!
+            this.Position = updateData.Position;
+            lastPositionUpdateTime = DateTime.UtcNow;
 
             return updateData;
         }
@@ -96,7 +112,8 @@ namespace BobboNet.Networking
             return new PlayerUpdate()
             {
                 Id = this.GetID(),
-                Position = new NetVec3(this.Position),
+                Type = GenericPlayerUpdateType.All,
+                Position = new NetVec3(this.ExtrapolatePosition()),
                 Velocity = new NetVec3(this.Velocity),
                 Rotation = this.Rotation,
                 Animation = new AnimationState().Copy(this.Animation)
@@ -105,46 +122,62 @@ namespace BobboNet.Networking
 
         public override bool ShouldPlayerUpdate()
         {
+            return GetPlayerUpdateType() != GenericPlayerUpdateType.None;
+        }
+
+        //
+        //  Private Methods
+        //
+
+        private GenericPlayerUpdateType GetPlayerUpdateType()
+        {
+            GenericPlayerUpdateType result = GenericPlayerUpdateType.None;
+
             // If we have changed our footing (in air vs landed)
             if(this.Animation.GroundedType != lastPlayerUpdate.Animation.GroundedType) 
             {
-                return true;
-            }
-
-            // If we've rotated enough to count as an update...
-            if(System.Math.Abs(this.Rotation - lastPlayerUpdate.Rotation) > MinAngularDeltaUpdate)
-            {
-                return true;
+                result &= GenericPlayerUpdateType.Animation;
             }
 
             // If we've rotated enough VERTICALLY to count as an update...
             if(System.Math.Abs(this.Animation.VerticalLook - lastPlayerUpdate.Animation.VerticalLook) > MinAngularDeltaUpdate)
             {
-                return true;
+                result &= GenericPlayerUpdateType.Animation;
             }
+
+            // If we've rotated enough to count as an update...
+            if(System.Math.Abs(this.Rotation - lastPlayerUpdate.Rotation) > MinAngularDeltaUpdate)
+            {
+                result &= GenericPlayerUpdateType.Rotation;
+            }
+
 
             //
             //  Extrapolate Positions
             //
 
             float oldDeltaTime = (float)((DateTime.UtcNow - lastPlayerUpdateTime).TotalSeconds);
-            float currentDeltaTime = (float)((DateTime.UtcNow - lastPositionUpdateTime).TotalSeconds);
 
             // Where we THINK we've moved too since the last player update.
             NetVec3 oldExtrapolatedPos = lastPlayerUpdate.Position + (lastPlayerUpdate.Velocity * oldDeltaTime);
 
             // Where we have CURRENTLY moved to since last updating our position.
-            NetVec3 currentExtrapolatedPos = this.Position + (this.Velocity * currentDeltaTime);
+            NetVec3 currentExtrapolatedPos = ExtrapolatePosition();
 
             // If the difference between our extrapolated position and our ACTUAL current position is too large...
             if(NetVec3.DeltaMagnitude(currentExtrapolatedPos, oldExtrapolatedPos) > MaxPositionError)
             {
-                return true;
+                result &= GenericPlayerUpdateType.Position;
             }
 
-            // OTHERWISE...
-            // ...this player has not moved enough. Don't waste bandwidth sending an update.
-            return false;
+            // Return the combined effort of all above statements!
+            return result;
+        }
+
+        private NetVec3 ExtrapolatePosition()
+        {
+            float currentDeltaTime = (float)((DateTime.UtcNow - lastPositionUpdateTime).TotalSeconds);
+            return this.Position + (this.Velocity * currentDeltaTime);
         }
     }
 }
