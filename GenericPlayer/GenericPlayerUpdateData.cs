@@ -48,8 +48,8 @@ namespace BobboNet.Networking
         public SelfType ApplyRotation(float rotationHorizontal, float rotationVertical)
         {
             this.Type |= GenericPlayerUpdateType.Rotation;
-            this.RotationHorizontal = RotationHorizontal;
-            this.RotationVertical = RotationVertical;
+            this.RotationHorizontal = rotationHorizontal;
+            this.RotationVertical = rotationVertical;
 
             return (SelfType)this;
         }
