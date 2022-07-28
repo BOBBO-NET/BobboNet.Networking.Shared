@@ -136,19 +136,19 @@ namespace BobboNet.Networking
             // If we have changed our footing (in air vs landed)
             if(this.Animation.GroundedType != lastPlayerUpdate.Animation.GroundedType) 
             {
-                result &= GenericPlayerUpdateType.Animation;
+                result |= GenericPlayerUpdateType.Animation;
             }
 
             // If we've rotated enough VERTICALLY to count as an update...
             if(System.Math.Abs(this.Animation.VerticalLook - lastPlayerUpdate.Animation.VerticalLook) > MinAngularDeltaUpdate)
             {
-                result &= GenericPlayerUpdateType.Animation;
+                result |= GenericPlayerUpdateType.Animation;
             }
 
             // If we've rotated enough to count as an update...
             if(System.Math.Abs(this.Rotation - lastPlayerUpdate.Rotation) > MinAngularDeltaUpdate)
             {
-                result &= GenericPlayerUpdateType.Rotation;
+                result |= GenericPlayerUpdateType.Rotation;
             }
 
 
@@ -167,7 +167,7 @@ namespace BobboNet.Networking
             // If the difference between our extrapolated position and our ACTUAL current position is too large...
             if(NetVec3.DeltaMagnitude(currentExtrapolatedPos, oldExtrapolatedPos) > MaxPositionError)
             {
-                result &= GenericPlayerUpdateType.Position;
+                result |= GenericPlayerUpdateType.Position;
             }
 
             // Return the combined effort of all above statements!
