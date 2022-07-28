@@ -9,7 +9,6 @@ namespace BobboNet.Networking
         //  Properties
         //
 
-        public float VerticalLook { get; set; }
         public GenericGroundAnimationType GroundedType { get; set; }
 
 
@@ -21,7 +20,6 @@ namespace BobboNet.Networking
 
         public SelfType Copy(SelfType other)
         {
-            this.VerticalLook = other.VerticalLook;
             this.GroundedType = other.GroundedType;
 
             return (SelfType)this;
@@ -33,13 +31,11 @@ namespace BobboNet.Networking
 
         public void Deserialize(NetDataReader reader)
         {
-            VerticalLook = reader.GetFloat();
             GroundedType = (GenericGroundAnimationType)reader.GetChar();
         }
 
         public void Serialize(NetDataWriter writer)
         {
-            writer.Put(VerticalLook);
             writer.Put((char)GroundedType);
         }
     }

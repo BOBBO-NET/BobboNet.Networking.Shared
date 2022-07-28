@@ -3,9 +3,9 @@ using System;
 
 namespace BobboNet.Networking
 {
-    public abstract class GenericPlayer<PlayerUpdate, AnimationState> : GamePlayer<PlayerUpdate>
-        where PlayerUpdate : GenericPlayerUpdate<PlayerUpdate, AnimationState>, new()
+    public abstract class GenericPlayer<AnimationState, UpdateDataType> : GamePlayer<UpdateDataType>
         where AnimationState : GenericPlayerAnimationState<AnimationState>, new()
+        where UpdateDataType : GenericPlayerUpdateData<UpdateDataType, AnimationState>, new()
     {
         //
         //  Protected Properties
@@ -27,97 +27,77 @@ namespace BobboNet.Networking
         //  Properties
         //
 
-        public NetVec3 Position                         { get; private set; } = new NetVec3();
-        public NetVec3 Velocity                         { get; private set; } = new NetVec3();
-        public float Rotation                           { get; private set; } = 0;
-        public AnimationState Animation    { get; private set; } = new AnimationState();
+        public UpdateDataType CurrentData               { get; private set; } = new UpdateDataType();
 
         //
         //  Variables
         //
 
         private DateTime lastPositionUpdateTime =  DateTime.UtcNow;
-        private PlayerUpdate lastPlayerUpdate = new PlayerUpdate();
+        private UpdateDataType lastPlayerUpdate = new UpdateDataType();
         private DateTime lastPlayerUpdateTime = DateTime.UtcNow;
-
-
-        //
-        //  Public Methods
-        //
-
-        public void SetPositionAndVelocity(NetVec3 newPosition, NetVec3 newVelocity)
-        {
-            this.Position = newPosition;
-
-            if(newVelocity.SqrMagnitude() < MinVelocityMagnitude) {
-                this.Velocity = new NetVec3();
-            }
-            else {
-                this.Velocity = newVelocity;
-            }
-
-            this.lastPositionUpdateTime = DateTime.UtcNow;
-        }
-
-        public void SetRotation(float newRotation)
-        {
-            this.Rotation = newRotation;
-        }
-
-        public void SetAnimationState(AnimationState newAnimation)
-        {
-            this.Animation = newAnimation;
-        }
 
         //
         //  GamePlayer Methods
         //
 
-        public override void ApplyPlayerUpdate(PlayerUpdate newUpdate)
+        public override void ApplyPlayerUpdate(UpdateDataType newUpdate)
         {
+            // If the update contains positional info, apply that & keep track of timing for extrapolation
             if((newUpdate.Type & GenericPlayerUpdateType.Position) == GenericPlayerUpdateType.Position)
             {
-                this.SetPositionAndVelocity(newUpdate.Position, newUpdate.Velocity);
+                CurrentData.Position = newUpdate.Position;
+
+                // If the squared velocity is under the minimum, then set velocity to zero.
+                if(newUpdate.Velocity.SqrMagnitude() < MinVelocityMagnitude) 
+                {
+                    CurrentData.Velocity = new NetVec3();
+                }
+                else 
+                {
+                    CurrentData.Velocity = newUpdate.Velocity;
+                }
+                // Cache the time that we updated position at for extrapolation
+                this.lastPositionUpdateTime = DateTime.UtcNow;
             }
 
+            // If the update contains rotational info, apply that!
             if((newUpdate.Type & GenericPlayerUpdateType.Rotation) == GenericPlayerUpdateType.Rotation)
             {
-                this.SetRotation(newUpdate.Rotation);
+                CurrentData.RotationHorizontal = newUpdate.RotationHorizontal;
+                CurrentData.RotationVertical = newUpdate.RotationVertical;
             }
 
+            // If the update contains new animation info, apply that!
             if((newUpdate.Type & GenericPlayerUpdateType.Animation) == GenericPlayerUpdateType.Animation)
             {
-                this.SetAnimationState(newUpdate.Animation);
+                CurrentData.Animation.Copy(newUpdate.Animation);
             }            
         }
 
-        public override PlayerUpdate CommitToPlayerUpdate()
+        public override UpdateDataType CommitToPlayerUpdate()
         {
-            PlayerUpdate updateData = CreatePlayerUpdate();
+            UpdateDataType updateData = CreatePlayerUpdate();
             updateData.Type = GetPlayerUpdateType();
 
-            lastPlayerUpdate = new PlayerUpdate();
+            lastPlayerUpdate = new UpdateDataType();
             lastPlayerUpdate.Copy(updateData);
             lastPlayerUpdateTime = DateTime.UtcNow;
 
             // Apply extrapolated position locally!
-            this.Position = updateData.Position;
+            CurrentData.Position = updateData.Position;
             lastPositionUpdateTime = DateTime.UtcNow;
 
             return updateData;
         }
 
-        public override PlayerUpdate CreatePlayerUpdate()
+        public override UpdateDataType CreatePlayerUpdate()
         {
-            return new PlayerUpdate()
-            {
-                Id = this.GetID(),
-                Type = GenericPlayerUpdateType.All,
-                Position = new NetVec3(this.ExtrapolatePosition()),
-                Velocity = new NetVec3(this.Velocity),
-                Rotation = this.Rotation,
-                Animation = new AnimationState().Copy(this.Animation)
-            };
+            UpdateDataType update = new UpdateDataType();
+            update.Copy(CurrentData);
+            update.Position = this.ExtrapolatePosition();
+            
+            return update;
         }
 
         public override bool ShouldPlayerUpdate()
@@ -134,19 +114,21 @@ namespace BobboNet.Networking
             GenericPlayerUpdateType result = GenericPlayerUpdateType.None;
 
             // If we have changed our footing (in air vs landed)
-            if(this.Animation.GroundedType != lastPlayerUpdate.Animation.GroundedType) 
+            if(CurrentData.Animation.GroundedType != lastPlayerUpdate.Animation.GroundedType) 
             {
                 result |= GenericPlayerUpdateType.Animation;
+            }
+
+            
+
+            // If we've rotated enough HORIZONTALLY to count as an update...
+            if(System.Math.Abs(CurrentData.RotationHorizontal - lastPlayerUpdate.RotationHorizontal) > MinAngularDeltaUpdate)
+            {
+                result |= GenericPlayerUpdateType.Rotation;
             }
 
             // If we've rotated enough VERTICALLY to count as an update...
-            if(System.Math.Abs(this.Animation.VerticalLook - lastPlayerUpdate.Animation.VerticalLook) > MinAngularDeltaUpdate)
-            {
-                result |= GenericPlayerUpdateType.Animation;
-            }
-
-            // If we've rotated enough to count as an update...
-            if(System.Math.Abs(this.Rotation - lastPlayerUpdate.Rotation) > MinAngularDeltaUpdate)
+            if(System.Math.Abs(CurrentData.RotationVertical - lastPlayerUpdate.RotationVertical) > MinAngularDeltaUpdate)
             {
                 result |= GenericPlayerUpdateType.Rotation;
             }
@@ -177,7 +159,7 @@ namespace BobboNet.Networking
         private NetVec3 ExtrapolatePosition()
         {
             float currentDeltaTime = (float)((DateTime.UtcNow - lastPositionUpdateTime).TotalSeconds);
-            return this.Position + (this.Velocity * currentDeltaTime);
+            return CurrentData.Position + (CurrentData.Velocity * currentDeltaTime);
         }
     }
 }

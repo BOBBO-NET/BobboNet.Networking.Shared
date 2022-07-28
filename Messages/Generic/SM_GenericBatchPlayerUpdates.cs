@@ -2,10 +2,11 @@ using LiteNetLib.Utils;
 
 namespace BobboNet.Networking.Messages.Generic
 {
-    public abstract class SM_GenericBatchPlayerUpdates<PlayerUpdate> : INetSerializable 
-        where PlayerUpdate : class, INetSerializable, new()
+    public abstract class SM_GenericBatchPlayerUpdates<UpdateMessageType, UpdateDataType> : INetSerializable 
+        where UpdateMessageType : SCM_GenericPlayerUpdate<UpdateMessageType, UpdateDataType>, new()
+        where UpdateDataType : class, INetSerializable, ICopyConstructor<UpdateDataType>, new()
     {
-        public PlayerUpdate[] Updates { get; set; } = new PlayerUpdate[0];
+        public UpdateMessageType[] Updates { get; set; } = new UpdateMessageType[0];
 
         //
         //  Constructors
@@ -20,10 +21,10 @@ namespace BobboNet.Networking.Messages.Generic
         public void Deserialize(NetDataReader reader)
         {
             int arrayLength = reader.GetInt();
-            Updates = new PlayerUpdate[arrayLength];
+            Updates = new UpdateMessageType[arrayLength];
             for(int i = 0; i < Updates.Length; i++)
             {
-                Updates[i] = new PlayerUpdate();
+                Updates[i] = new UpdateMessageType();
                 Updates[i].Deserialize(reader);
             }
         }

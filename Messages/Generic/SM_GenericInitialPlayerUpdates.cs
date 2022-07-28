@@ -2,9 +2,10 @@ using LiteNetLib.Utils;
 
 namespace BobboNet.Networking.Messages.Generic
 {
-    public class SM_GenericInitialPlayerUpdates<PlayerUpdate, SM_BatchPlayerUpdates> : INetSerializable
-        where PlayerUpdate : class, INetSerializable, new()
-        where SM_BatchPlayerUpdates : SM_GenericBatchPlayerUpdates<PlayerUpdate>, new()
+    public class SM_GenericInitialPlayerUpdates<UpdateMessageType, UpdateDataType, SM_BatchPlayerUpdates> : INetSerializable
+        where UpdateMessageType : SCM_GenericPlayerUpdate<UpdateMessageType, UpdateDataType>, new()
+        where UpdateDataType : class, INetSerializable, ICopyConstructor<UpdateDataType>, new()
+        where SM_BatchPlayerUpdates : SM_GenericBatchPlayerUpdates<UpdateMessageType, UpdateDataType>, new()
     {
         public SM_BatchPlayerUpdates BatchUpdates { get; set; } = new SM_BatchPlayerUpdates();
 

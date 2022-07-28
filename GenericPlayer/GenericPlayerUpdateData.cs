@@ -2,15 +2,15 @@ using LiteNetLib.Utils;
 
 namespace BobboNet.Networking
 {
-    public abstract class GenericPlayerUpdate<SelfType, AnimationState> : INetSerializable, ICopyConstructor<SelfType>
-        where SelfType : GenericPlayerUpdate<SelfType, AnimationState>
+    public abstract class GenericPlayerUpdateData<SelfType, AnimationState> : INetSerializable, ICopyConstructor<SelfType>
+        where SelfType : GenericPlayerUpdateData<SelfType, AnimationState>
         where AnimationState : GenericPlayerAnimationState<AnimationState>, new()
     {
-        public int Id                           { get; set; }
-        public GenericPlayerUpdateType Type     { get; set; }
+        public GenericPlayerUpdateType Type     { get; set; } = GenericPlayerUpdateType.None;
         public NetVec3 Position                 { get; set; } = new NetVec3();
         public NetVec3 Velocity                 { get; set; } = new NetVec3();
-        public float Rotation                   { get; set; }
+        public float RotationHorizontal         { get; set; }
+        public float RotationVertical           { get; set; }
         public AnimationState Animation         { get; set; } = new AnimationState();
 
 
@@ -18,20 +18,49 @@ namespace BobboNet.Networking
         //  Constructors
         //
 
-        public GenericPlayerUpdate() { }
+        public GenericPlayerUpdateData() { }
 
         public SelfType Copy(SelfType other)
         {
-            this.Id = other.Id;
             this.Type = other.Type;
             this.Position = new NetVec3(other.Position);
             this.Velocity = new NetVec3(other.Velocity);
-            this.Rotation = other.Rotation;
+            this.RotationHorizontal = other.RotationHorizontal;
+            this.RotationVertical = other.RotationVertical;
             this.Animation.Copy(other.Animation);
 
             return (SelfType)this;
         }
 
+        //
+        //  Public Methods
+        //
+
+        public SelfType ApplyPosition(NetVec3 position, NetVec3 velocity)
+        {
+            this.Type |= GenericPlayerUpdateType.Position;
+            this.Position = position;
+            this.Velocity = velocity;
+
+            return (SelfType)this;
+        }
+
+        public SelfType ApplyRotation(float rotationHorizontal, float rotationVertical)
+        {
+            this.Type |= GenericPlayerUpdateType.Rotation;
+            this.RotationHorizontal = RotationHorizontal;
+            this.RotationVertical = RotationVertical;
+
+            return (SelfType)this;
+        }
+
+        public SelfType ApplyAnimationState(AnimationState animationState)
+        {
+            this.Type |= GenericPlayerUpdateType.Animation;
+            this.Animation.Copy(animationState);
+
+            return (SelfType)this;
+        }
 
         //
         //  Serialization
@@ -39,7 +68,6 @@ namespace BobboNet.Networking
 
         public void Deserialize(NetDataReader reader)
         {
-            this.Id = reader.GetInt();
             this.Type = (GenericPlayerUpdateType)reader.GetByte();
 
             // If we're storing position, then read it!
@@ -52,7 +80,8 @@ namespace BobboNet.Networking
             // If we're storing rotation, then read it!
             if((this.Type & GenericPlayerUpdateType.Rotation) == GenericPlayerUpdateType.Rotation) 
             {
-                Rotation = reader.GetFloat();
+                RotationHorizontal = reader.GetFloat();
+                RotationVertical = reader.GetFloat();
             }
 
             // If we're storing animation data, then read it!
@@ -64,7 +93,6 @@ namespace BobboNet.Networking
 
         public void Serialize(NetDataWriter writer)
         {
-            writer.Put(Id);
             writer.Put((byte)Type);
 
             // If we're storing position, then write it!
@@ -77,7 +105,8 @@ namespace BobboNet.Networking
             // If we're storing rotation, then write it!
             if((this.Type & GenericPlayerUpdateType.Rotation) == GenericPlayerUpdateType.Rotation) 
             {
-                writer.Put(Rotation);
+                writer.Put(RotationHorizontal);
+                writer.Put(RotationVertical);
             }
 
             // If we're storing animation data, then write it!
